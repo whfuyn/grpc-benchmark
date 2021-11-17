@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+option go_package = "grpc-benchmark/example";
+
 package example;
 
 
@@ -12,6 +14,6 @@ message Resp {
 }
 
 service ExampleService {
-    rpc call(Req) returns (Resp);
+    rpc Call(Req) returns (Resp);
 }
 
