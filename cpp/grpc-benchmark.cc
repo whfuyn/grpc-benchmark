@@ -2,6 +2,7 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include <grpc/support/log.h>
 #include <grpcpp/grpcpp.h>
@@ -45,7 +46,15 @@ class ServerImpl final {
     std::cout << "Server listening on " << server_address << std::endl;
 
     // Proceed to the server's main loop.
-    HandleRpcs();
+    std::vector<std::thread> handles;
+    for(int i = 0; i < std::thread::hardware_concurrency(); i++) {
+        printf("thread %d running.\n", i);
+        handles.push_back(std::thread(HandleRpcs, &service_, cq_.get()));
+    }
+
+    for(std::thread &t: handles) {
+        t.join();
+    }
   }
 
  private:
@@ -118,9 +127,9 @@ class ServerImpl final {
   };
 
   // This can be run in multiple threads if needed.
-  void HandleRpcs() {
+  static void HandleRpcs(ExampleService::AsyncService* service, ServerCompletionQueue* cq) {
     // Spawn a new CallData instance to serve new clients.
-    new CallData(&service_, cq_.get());
+    new CallData(service, cq);
     void* tag;  // uniquely identifies a request.
     bool ok;
     while (true) {
@@ -129,7 +138,7 @@ class ServerImpl final {
       // memory address of a CallData instance.
       // The return value of Next should always be checked. This return value
       // tells us whether there is any kind of event or cq_ is shutting down.
-      GPR_ASSERT(cq_->Next(&tag, &ok));
+      GPR_ASSERT(cq->Next(&tag, &ok));
       GPR_ASSERT(ok);
       static_cast<CallData*>(tag)->Proceed();
     }
